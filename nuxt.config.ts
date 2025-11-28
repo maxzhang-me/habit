@@ -10,6 +10,14 @@ export default defineNuxtConfig({
   colorMode: {
     preference: 'dark',
   },
+  devServer: {
+    port: 8888,
+  },
+  nitro: {
+    rollupConfig: {
+      external: ['picomatch'],
+    },
+  },
   runtimeConfig: {
     public: {
       version: pkg.version,
