@@ -7,9 +7,34 @@ defineProps<{ habit: Habit; isMyProfile: Boolean }>();
 
 const renderMarkdown = (text: string) => marked(text);
 
+// Available color options for habit completion
+const qualityColors = [
+  { name: 'Gold', value: 'gold', gradient: 'from-yellow-300 via-yellow-400 to-yellow-500', dark: 'dark:from-yellow-400 dark:via-yellow-500 dark:to-yellow-600' },
+  { name: 'Red', value: 'red', gradient: 'from-red-400 via-red-500 to-red-600', dark: 'dark:from-red-500 dark:via-red-600 dark:to-red-700' },
+  { name: 'Pink', value: 'pink', gradient: 'from-pink-300 via-pink-400 to-pink-500', dark: 'dark:from-pink-400 dark:via-pink-500 dark:to-pink-600' },
+  { name: 'Purple', value: 'purple', gradient: 'from-purple-400 via-purple-500 to-purple-600', dark: 'dark:from-purple-500 dark:via-purple-600 dark:to-purple-700' },
+  { name: 'Blue', value: 'blue', gradient: 'from-blue-400 via-blue-500 to-blue-600', dark: 'dark:from-blue-500 dark:via-blue-600 dark:to-blue-700' },
+];
+
 const getCompletionRate = (habit: Habit) => Math.round((habit.completeDays.length / 40) * 100);
 
 const openHabitModal = ref(false);
+const showColorPicker = ref(false);
+const selectedColor = ref('gold');
+const colorPickerRef = ref<HTMLElement | null>(null);
+
+// Close color picker when clicking outside
+onMounted(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (showColorPicker.value && colorPickerRef.value && !colorPickerRef.value.contains(event.target as Node)) {
+      showColorPicker.value = false;
+    }
+  };
+  document.addEventListener('click', handleClickOutside);
+  onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside);
+  });
+});
 
 // Delete habit
 const confirmDeleteHabit = ref(false);
@@ -34,11 +59,11 @@ const { mutate: deleteHabit } = useMutation({
 
 // Edit habit
 const editingHabit = ref<number | null>(null);
-const edit = ref<{ title: string; description: string; habitView: boolean }>({ title: '', description: '', habitView: false });
+const edit = ref<{ title: string; description: string; habitView: boolean; enableColorPicker: boolean }>({ title: '', description: '', habitView: false, enableColorPicker: false });
 
 const editHabit = (habit: Habit) => {
   editingHabit.value = habit.id;
-  edit.value = { title: habit.title, description: habit.description || '', habitView: habit.habitView };
+  edit.value = { title: habit.title, description: habit.description || '', habitView: habit.habitView, enableColorPicker: habit.enableColorPicker ?? false };
 };
 
 const { mutate: saveHabit } = useMutation({
@@ -49,6 +74,7 @@ const { mutate: saveHabit } = useMutation({
         title: edit.value.title,
         description: edit.value.description,
         habitView: edit.value.habitView,
+        enableColorPicker: edit.value.enableColorPicker,
       },
     }),
 
@@ -62,15 +88,24 @@ const cancelEdit = () => {
   editingHabit.value = null;
 };
 
-const isTodayCompleted = (habit: Habit) => habit.completeDays.some(day => isSameDay(parseISO(day), new Date()));
+const isTodayCompleted = (habit: Habit) => habit.completeDays.some((day) => {
+  const date = typeof day === 'string' ? day : day.date;
+  return isSameDay(parseISO(date), new Date());
+});
 
 const { mutate: toggleTodayCompletion } = useMutation({
-  mutation: (habit: Habit) => {
-    const isCompletedToday = habit.completeDays.some(day => isSameDay(parseISO(day), new Date()));
+  mutation: ({ habit, color }: { habit: Habit; color?: string }) => {
+    const isCompletedToday = habit.completeDays.some((day) => {
+      const date = typeof day === 'string' ? day : day.date;
+      return isSameDay(parseISO(date), new Date());
+    });
 
     const updatedCompleteDays = isCompletedToday
-      ? habit.completeDays.filter(day => !isSameDay(parseISO(day), new Date()))
-      : [...habit.completeDays, format(new Date(), 'yyyy-MM-dd')];
+      ? habit.completeDays.filter((day) => {
+          const date = typeof day === 'string' ? day : day.date;
+          return !isSameDay(parseISO(date), new Date());
+        })
+      : [...habit.completeDays, { date: format(new Date(), 'yyyy-MM-dd'), color: color || selectedColor.value }];
 
     return $fetch(`/api/habits/${habit.id}`, {
       method: 'PATCH',
@@ -82,11 +117,36 @@ const { mutate: toggleTodayCompletion } = useMutation({
 
   async onSuccess(habit) {
     await queryCache.invalidateQueries({ active: true });
-    if (habit.completeDays.some(day => isSameDay(parseISO(day), new Date()))) {
+    showColorPicker.value = false;
+    const isCompletedToday = habit.completeDays.some((day) => {
+      const date = typeof day === 'string' ? day : day.date;
+      return isSameDay(parseISO(date), new Date());
+    });
+    if (isCompletedToday) {
       startConfettiAnimation();
     }
   },
 });
+
+const handleCompleteClick = (habit: Habit) => {
+  if (isTodayCompleted(habit)) {
+    // If already completed, undo completion
+    toggleTodayCompletion({ habit });
+  } else {
+    // If not completed and color picker is enabled, show color picker
+    if (habit.enableColorPicker) {
+      selectedColor.value = 'gold';
+      showColorPicker.value = true;
+    } else {
+      // Otherwise complete with default color
+      toggleTodayCompletion({ habit, color: 'gold' });
+    }
+  }
+};
+
+const handleColorSelect = (habit: Habit, color: string) => {
+  toggleTodayCompletion({ habit, color });
+};
 </script>
 
 <template>
@@ -132,13 +192,33 @@ const { mutate: toggleTodayCompletion } = useMutation({
           <UInput v-if="editingHabit === habit.id" :ui="{ wrapper: 'flex-1', rounded: 'rounded-full', size: { sm: 'text-sm font-semibold' } }" v-model="edit.title" />
           <div v-else class="line-clamp-1 text-xl font-semibold">{{ habit.title }}</div>
           <div v-if="isMyProfile" class="flex items-center gap-3">
-            <button
-              @click="toggleTodayCompletion(habit)"
-              class="button px-2.5 py-1.5 font-semibold outline-none"
-              :class="isTodayCompleted(habit) ? 'bg-white/10 hover:bg-white/25' : 'bg-green-500 hover:bg-green-400 dark:bg-green-400 dark:text-green-950 dark:hover:bg-green-300'">
-              <UIcon v-if="!isTodayCompleted(habit)" name="i-heroicons-check-16-solid" class="h-5 w-5" />
-              {{ isTodayCompleted(habit) ? 'Undo' : 'Complete' }}
-            </button>
+            <div class="relative">
+              <button
+                @click.stop="handleCompleteClick(habit)"
+                class="button px-2.5 py-1.5 font-semibold outline-none"
+                :class="isTodayCompleted(habit) ? 'bg-white/10 hover:bg-white/25' : 'bg-green-500 hover:bg-green-400 dark:bg-green-400 dark:text-green-950 dark:hover:bg-green-300'">
+                <UIcon v-if="!isTodayCompleted(habit)" name="i-heroicons-check-16-solid" class="h-5 w-5" />
+                {{ isTodayCompleted(habit) ? 'Undo' : 'Complete' }}
+              </button>
+
+              <!-- Color picker -->
+              <div v-if="showColorPicker" ref="colorPickerRef" @click.stop class="absolute right-0 top-full z-50 mt-2 rounded-xl bg-black/80 p-3 shadow-xl backdrop-blur-xl border border-white/10">
+                <div class="mb-2 text-xs font-medium text-white/70">Select Color</div>
+                <div class="flex gap-2">
+                  <button
+                    v-for="color in qualityColors"
+                    :key="color.value"
+                    @click="handleColorSelect(habit, color.value)"
+                    :class="[
+                      'h-8 w-8 rounded-lg bg-gradient-to-tr shadow-md transition hover:scale-110 active:scale-95',
+                      color.gradient,
+                      color.dark
+                    ]"
+                    :title="color.name">
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <UPopover :popper="{ placement: 'bottom-end' }" :ui="{ background: '', shadow: '', ring: '' }">
               <button class="button bg-white/10 p-1.5 hover:bg-white/25">
@@ -185,14 +265,20 @@ const { mutate: toggleTodayCompletion } = useMutation({
             <UTextarea v-if="editingHabit === habit.id" v-model="edit.description" autoresize />
             <div v-else class="prose prose-sm prose-invert" v-html="renderMarkdown(habit.description || '')"></div>
           </div>
-          <div v-if="editingHabit === habit.id" class="mt-2 flex items-center justify-between">
-            <div></div>
-            <div class="flex items-center gap-4 text-sm">
+          <div v-if="editingHabit === habit.id" class="mt-2 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-sm">
               <div>
                 Visibility:
                 <strong>{{ edit.habitView ? 'Public' : 'Private' }}</strong>
               </div>
               <UToggle v-model="edit.habitView" />
+            </div>
+            <div class="flex items-center justify-between text-sm">
+              <div>
+                Color Selection:
+                <strong>{{ edit.enableColorPicker ? 'Enabled' : 'Disabled' }}</strong>
+              </div>
+              <UToggle v-model="edit.enableColorPicker" />
             </div>
           </div>
         </ContentBox>

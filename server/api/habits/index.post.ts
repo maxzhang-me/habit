@@ -1,10 +1,11 @@
 import { useValidatedBody, z } from 'h3-zod';
 
 export default eventHandler(async event => {
-  const { title, description, habitView } = await useValidatedBody(event, {
+  const { title, description, habitView, enableColorPicker } = await useValidatedBody(event, {
     title: z.string().min(1, 'Title is required').trim(),
     description: z.string().min(1, 'Description is required').trim(),
     habitView: z.boolean(),
+    enableColorPicker: z.boolean().optional(),
   });
 
   const { user } = await requireUserSession(event);
@@ -17,6 +18,7 @@ export default eventHandler(async event => {
       description,
       createdAt: new Date(),
       habitView,
+      enableColorPicker: enableColorPicker ?? false,
     })
     .returning()
     .get();

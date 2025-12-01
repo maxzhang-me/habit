@@ -6,6 +6,7 @@ const schema = z.object({
   title: z.string().min(1, 'Title is required').trim(),
   description: z.string().min(1, 'Description is required').trim(),
   habitView: z.boolean(),
+  enableColorPicker: z.boolean(),
 });
 
 type Schema = z.output<typeof schema>;
@@ -14,6 +15,7 @@ const formState = reactive<Schema>({
   title: '',
   description: '',
   habitView: false,
+  enableColorPicker: false,
 });
 
 const queryCache = useQueryCache();
@@ -62,6 +64,15 @@ const habitVisibilityMessage = computed(() => {
       <UFormGroup name="description">
         <div class="input-container">
           <textarea class="scroll-bar" rows="5" v-model="formState.description" placeholder="Description (Markdown supported)..."></textarea>
+        </div>
+      </UFormGroup>
+      <UFormGroup name="enableColorPicker">
+        <div class="toggle flex items-center justify-between gap-20">
+          <div class="flex flex-col">
+            <div class="text-sm font-semibold text-white">Enable Color Selection</div>
+            <div class="text-xs text-white/60">Allow choosing different colors when completing each day</div>
+          </div>
+          <UToggle v-model="formState.enableColorPicker" />
         </div>
       </UFormGroup>
       <UFormGroup name="habitView">

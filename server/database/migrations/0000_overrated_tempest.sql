@@ -5,7 +5,8 @@ CREATE TABLE `habits` (
 	`description` text,
 	`complete_days` text DEFAULT '[]' NOT NULL,
 	`created_at` integer NOT NULL,
-	`habit_view` integer DEFAULT false NOT NULL
+	`habit_view` integer DEFAULT false NOT NULL,
+	`enable_color_picker` integer DEFAULT false NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `users` (

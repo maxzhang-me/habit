@@ -5,9 +5,10 @@ export const habits = sqliteTable('habits', {
   userId: integer('user_id').notNull(),
   title: text('title').notNull(),
   description: text('description'),
-  completeDays: text('complete_days', { mode: 'json' }).$type<string[]>().notNull().default([]),
+  completeDays: text('complete_days', { mode: 'json' }).$type<Array<{ date: string; color: string }>>().notNull().default([]),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   habitView: integer('habit_view', { mode: 'boolean' }).notNull().default(false),
+  enableColorPicker: integer('enable_color_picker', { mode: 'boolean' }).notNull().default(false),
 });
 
 export const users = sqliteTable('users', {

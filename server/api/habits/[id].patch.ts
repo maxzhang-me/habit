@@ -6,20 +6,22 @@ export default eventHandler(async event => {
     id: zh.intAsString,
   });
 
-  const { title, description, completeDays, habitView } = await useValidatedBody(event, {
+  const { title, description, completeDays, habitView, enableColorPicker } = await useValidatedBody(event, {
     title: z.string().optional(),
     description: z.string().optional(),
-    completeDays: z.array(z.string()).optional(),
+    completeDays: z.array(z.object({ date: z.string(), color: z.string() })).optional(),
     habitView: z.boolean().optional(),
+    enableColorPicker: z.boolean().optional(),
   });
 
   const { user } = await requireUserSession(event);
 
-  const updatedFields: Partial<{ title: string; description: string; completeDays: string[]; habitView: boolean }> = {};
+  const updatedFields: Partial<{ title: string; description: string; completeDays: Array<{ date: string; color: string }>; habitView: boolean; enableColorPicker: boolean }> = {};
   if (title) updatedFields.title = title;
   if (description) updatedFields.description = description;
   if (completeDays) updatedFields.completeDays = completeDays;
   if (habitView !== undefined) updatedFields.habitView = habitView;
+  if (enableColorPicker !== undefined) updatedFields.enableColorPicker = enableColorPicker;
 
   const habit = await useDB()
     .update(tables.habits)

@@ -57,6 +57,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "enable_color_picker": {
+          "name": "enable_color_picker",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         }
       },
       "indexes": {},
